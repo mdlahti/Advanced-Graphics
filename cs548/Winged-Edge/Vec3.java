@@ -10,6 +10,15 @@ public class Vec3 {
     public static Vec3 add(Vec3 a, Vec3 b) {
     	return new Vec3(a.x+b.x, a.y+b.y, a.z+b.z);
     }
+    public static Vec3 sub(Vec3 a, Vec3 b) {
+    	return new Vec3(a.x-b.x, a.y-b.y, a.z-b.z);
+    }
+    public void normalize(){
+    	float len = (float)Math.sqrt(this.x*this.x+this.y*this.y+this.z*this.z);
+		this.x = this.x / len;
+		this.y = this.y / len;
+		this.z = this.z / len;
+    }
     public Vec3 scale(float s) {
     	x *= s; y *= s; z *= s;
     	return this;
