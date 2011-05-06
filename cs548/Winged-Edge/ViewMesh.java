@@ -40,9 +40,9 @@ public class ViewMesh implements GLEventListener, KeyListener, MouseListener, Mo
 	static double thet = M_PI/2;
 	
 	static final int numMeshes = 6;
-	protected Mesh tetrahedron;
-	protected Mesh tetrahedronSubOne;
 	protected Mesh[] tetraMeshes = new Mesh[numMeshes];
+	protected Mesh[] squareMeshes = new Mesh[numMeshes];
+	protected Mesh[] pyramidMeshes = new Mesh[numMeshes];
 	
 	static final int SUB_ZERO	= 0;
 	static final int SUB_ONE	= 1;
@@ -50,10 +50,15 @@ public class ViewMesh implements GLEventListener, KeyListener, MouseListener, Mo
 	static final int SUB_THREE = 3;
 	static final int SUB_FOUR  = 4;
 	static final int SUB_FIVE  = 5;
+	static final int TETRAHEDRON = 17;
+	static final int SQUARE = 18;
+	static final int PYRAMID = 19;
 	// default thing to draw
 	static int whatToDraw = SUB_ZERO;
+	static int shape = TETRAHEDRON;
 	static boolean shaded = false;
 	
+	static boolean zoom = false;
 	static double lookat[] = {0.0,0.0,0.0};
 	static double eye[] = {5.0,5.0,0.0};
 	static double up[] = {0.0,0.0,1.0};
@@ -73,7 +78,8 @@ public class ViewMesh implements GLEventListener, KeyListener, MouseListener, Mo
 		gl.glClear(GL.GL_COLOR_BUFFER_BIT);
         gl.glClear(GL.GL_DEPTH_BUFFER_BIT);
 		gl.glMatrixMode(GLMatrixFunc.GL_MODELVIEW);
-		if(dragMouse){
+		if(dragMouse || zoom){
+			zoom = false;
 			double sin_phi = Math.sin(phi*DEGREES_TO_RADIANS);
 			eye[0] = rho*Math.cos(thet*DEGREES_TO_RADIANS)*sin_phi;
 			eye[1] = rho*Math.sin(thet*DEGREES_TO_RADIANS)*sin_phi;
@@ -85,28 +91,19 @@ public class ViewMesh implements GLEventListener, KeyListener, MouseListener, Mo
 					  up[0],up[1],up[2]);
 		}
         gl.glPushMatrix();
-		switch (whatToDraw) {
-			case SUB_ZERO:
-				drawTetrahedron(gLDrawable, tetraMeshes[0]);
-				break;
-			case SUB_ONE:
-				drawTetrahedron(gLDrawable, tetraMeshes[1]);
-				break;
-			case SUB_TWO:
-				drawTetrahedron(gLDrawable, tetraMeshes[2]);
-				break;
-			case SUB_THREE:
-				drawTetrahedron(gLDrawable, tetraMeshes[3]);
-				break;
-			case SUB_FOUR:
-				drawTetrahedron(gLDrawable, tetraMeshes[4]);
-				break;
-			case SUB_FIVE:
-				drawTetrahedron(gLDrawable, tetraMeshes[5]);
-				break;
-			default:
-				drawTetrahedron(gLDrawable, tetraMeshes[0]);
-				break;
+		switch (shape) {
+		case TETRAHEDRON:
+			drawMeshOld(gLDrawable, tetraMeshes[whatToDraw]);
+			break;
+		case SQUARE:
+			drawMeshOld(gLDrawable, squareMeshes[whatToDraw]);
+			break;
+		case PYRAMID:
+			drawMeshOld(gLDrawable, pyramidMeshes[whatToDraw]);
+			break;
+		default:
+			drawMeshOld(gLDrawable, tetraMeshes[0]);
+			break;
 		}                                        
 		gl.glPopMatrix();
     }
@@ -119,11 +116,23 @@ public class ViewMesh implements GLEventListener, KeyListener, MouseListener, Mo
 		}
 	}
 	
-	public void drawTetrahedron(GLAutoDrawable gLDrawable, Mesh m){
-		// tetrahedron holds Vectors: E, F, V
-		// loop through each edge drawing lines from 
-		// V.get(E.get(i).v) to V.get(E.get(E.get(i).next).v)
-		//for(int i = 0; i < tetrahedron.E.size(); i++){
+	public void makeSquareMesh(){
+		for(int i = 0; i < numMeshes; i++){
+			squareMeshes[i] = Mesh.square();
+			for(int j = 0; j < i; j++)
+				squareMeshes[i].loopSubdivide();
+		}
+	}
+	
+	public void makePyramidMesh(){
+		for(int i = 0; i < numMeshes; i++){
+			pyramidMeshes[i] = Mesh.pyramid();
+			for(int j = 0; j < i; j++)
+				pyramidMeshes[i].loopSubdivide();
+		}
+	}
+	
+	public void drawMeshOld(GLAutoDrawable gLDrawable, Mesh m){
 		final GL2 gl = gLDrawable.getGL().getGL2();
 		if(shaded){
 			for(Mesh.Face face : m.F){
@@ -154,8 +163,95 @@ public class ViewMesh implements GLEventListener, KeyListener, MouseListener, Mo
 		}
 	}
 	
-	public void drawShadedTetra(GLAutoDrawable gLDrawable, Mesh m){
-		
+	public void drawMesh(GLAutoDrawable gLDrawable, Mesh m){
+		final GL2 gl = gLDrawable.getGL().getGL2();
+		if(shaded){
+			int numSubs = 2*m.getNumSubdivides();
+			if(numSubs == 0)
+				numSubs = 1;
+			for(int ei : m.originalFaceEdges){
+				gl.glBegin(GL.GL_TRIANGLE_STRIP);
+				// vi = index of an original vert
+				// get initial number of steps
+				int N;
+				boolean up = true;
+				Mesh.Edge e = m.E.get(ei);
+				for(N = numSubs; N > 0; N--, up = !up){
+					int n;
+					Vec3 v;
+					Vec3 norm;
+					for(n = N; n > 0; n--){
+						if(up){
+							// step up
+							v = m.V.get(e.v).coord;
+							norm = m.V.get(e.v).norm;
+							gl.glColor3f(0.0f, 1.0f, 1.0f);
+							gl.glNormal3f(norm.x,norm.y,norm.z);
+							gl.glVertex3f(v.x,v.y,v.z);
+							e = m.E.get((e.next));
+							v = m.V.get(e.v).coord;
+							norm = m.V.get(e.v).norm;
+							gl.glColor3f(0.0f, 1.0f, 1.0f);
+							gl.glNormal3f(norm.x,norm.y,norm.z);
+							gl.glVertex3f(v.x,v.y,v.z);
+							e = m.E.get(m.E.get(m.E.get(e.sym).prev).sym);
+						}else{
+							// step down
+							e = m.E.get(e.sym);
+							v = m.V.get(e.v).coord;
+							norm = m.V.get(e.v).norm;
+							gl.glColor3f(0.0f, 1.0f, 1.0f);
+							gl.glNormal3f(norm.x,norm.y,norm.z);
+							gl.glVertex3f(v.x,v.y,v.z);
+							e = m.E.get(e.prev);
+							v = m.V.get(e.v).coord;
+							norm = m.V.get(e.v).norm;
+							gl.glColor3f(0.0f, 1.0f, 1.0f);
+							gl.glNormal3f(norm.x,norm.y,norm.z);
+							gl.glVertex3f(v.x,v.y,v.z);
+							e = m.E.get(m.E.get(e.sym).next);
+						}
+					}
+					// end of steps, handle reversing direction
+					if(up){
+						v = m.V.get(e.v).coord;
+						norm = m.V.get(e.v).norm;
+						gl.glColor3f(0.0f, 1.0f, 1.0f);
+						gl.glNormal3f(norm.x,norm.y,norm.z);
+						gl.glVertex3f(v.x,v.y,v.z);
+						// so ugly
+						e = m.E.get(m.E.get(m.E.get(m.E.get(m.E.get(m.E.get(m.E.get(e.sym).next).next).sym).next).sym).next);
+						v = m.V.get(e.v).coord;
+						norm = m.V.get(e.v).norm;
+						gl.glColor3f(0.0f, 1.0f, 1.0f);
+						gl.glNormal3f(norm.x,norm.y,norm.z);
+						gl.glVertex3f(v.x,v.y,v.z);
+						
+					}else{
+						// also ugly
+						e = m.E.get(m.E.get(m.E.get(m.E.get(m.E.get(m.E.get(m.E.get(e.prev).sym).next).sym).next).sym).next);
+						/*v = m.V.get(e.v).coord;
+						norm = m.V.get(e.v).norm;
+						gl.glColor3f(0.0f, 1.0f, 1.0f);
+						gl.glNormal3f(norm.x,norm.y,norm.z);
+						gl.glVertex3f(v.x,v.y,v.z);*/
+					}
+				}
+				gl.glEnd();
+			}
+		}else{
+			for(Mesh.Edge edge : m.E){
+				if(edge.i < m.E.get(edge.sym).i){
+					Vec3 v1 = m.V.get(edge.v).coord;
+					Vec3 v2 = m.V.get(m.E.get(edge.next).v).coord;
+					gl.glBegin(GL.GL_LINES);
+					gl.glColor3f(0.0f, 1.0f, 1.0f);
+					gl.glVertex3f(v1.x, v1.y, v1.z);
+					gl.glVertex3f(v2.x, v2.y, v2.z);
+					gl.glEnd();
+				}
+			}
+		}
 	}
 	
     public void displayChanged(GLAutoDrawable gLDrawable, boolean modeChanged, boolean deviceChanged) {
@@ -192,6 +288,9 @@ public class ViewMesh implements GLEventListener, KeyListener, MouseListener, Mo
 		//gl.glLightModelfv(GL2ES1.GL_LIGHT_MODEL_AMBIENT, global_ambient,0);
 		
 		makeTetrahedronMesh();
+		makeSquareMesh();
+		makePyramidMesh();
+		zoom = true;
     }
  
     public void reshape(GLAutoDrawable gLDrawable, int x, int y, int width, int height) {
@@ -209,29 +308,62 @@ public class ViewMesh implements GLEventListener, KeyListener, MouseListener, Mo
 		glu.gluLookAt(eye[0],eye[1],eye[2],
 					  lookat[0],lookat[1],lookat[2],
 					  up[0],up[1],up[2]);
-		//System.out.println(eye[0] + " " + eye[1] + " " + eye[2]);
     }
  
     public void keyPressed(KeyEvent e) {
-        if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-            exit();
-        }else if (e.getKeyCode() == KeyEvent.VK_0) {
-			whatToDraw = SUB_ZERO;
-		}else if (e.getKeyCode() == KeyEvent.VK_1) {
-			whatToDraw = SUB_ONE;
-		}else if (e.getKeyCode() == KeyEvent.VK_2) {
-			whatToDraw = SUB_TWO;
-		}else if (e.getKeyCode() == KeyEvent.VK_3) {
-			whatToDraw = SUB_THREE;
-		}else if (e.getKeyCode() == KeyEvent.VK_4) {
-			whatToDraw = SUB_FOUR;
-		}else if (e.getKeyCode() == KeyEvent.VK_5) {
-			whatToDraw = SUB_FIVE;
-		}else if (e.getKeyCode() == KeyEvent.VK_S) {
-			shaded = true;
-		}else if (e.getKeyCode() == KeyEvent.VK_L) {
-			shaded = false;
-		}
+    	switch(e.getKeyCode()){
+    	case KeyEvent.VK_ESCAPE:
+    		exit();
+    		break;
+    	case KeyEvent.VK_0:
+    		whatToDraw = SUB_ZERO;
+    		break;
+    	case KeyEvent.VK_1:
+    		whatToDraw = SUB_ONE;
+    		break;
+    	case KeyEvent.VK_2:
+    		whatToDraw = SUB_TWO;
+    		break;
+    	case KeyEvent.VK_3:
+    		whatToDraw = SUB_THREE;
+    		break;
+    	case KeyEvent.VK_4:
+    		whatToDraw = SUB_FOUR;
+    		break;
+    	case KeyEvent.VK_5:
+    		whatToDraw = SUB_FIVE;
+    		break;
+    	case KeyEvent.VK_S:
+    		shaded = true;
+    		break;
+    	case KeyEvent.VK_L:
+    		shaded = false;
+    		break;
+    	case KeyEvent.VK_T:
+    		shape = TETRAHEDRON;
+    		break;
+    	case KeyEvent.VK_Q:
+    		shape = SQUARE;
+    		break;
+    	case KeyEvent.VK_P:
+    		shape = PYRAMID;
+    		break;
+    	case KeyEvent.VK_Z:
+    		rho -= 0.5;
+    		if(rho < 0.5)
+    			rho = 0.5;
+    		if(rho < 1.5 && (whatToDraw == SUB_ZERO))
+    			rho = 1.5;
+    		zoom = true;
+    		break;
+    	case KeyEvent.VK_X:
+    		rho += 0.5;
+    		if(rho > 5.0)
+    			rho = 5.0;
+    		zoom = true;
+    		break;
+    	}
+        
     }
  
     public void keyReleased(KeyEvent e) {}

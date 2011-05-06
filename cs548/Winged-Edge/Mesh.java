@@ -52,6 +52,7 @@ public class Mesh {
     protected Vector<Vert> V;	// verts
     // store one of each original face's vert indices
     protected Vector<Integer> originalFaceVerts;
+    protected Vector<Integer> originalFaceEdges;
     
     private int originalFaceCount;
     private int numSubdivides = 0;
@@ -71,6 +72,7 @@ public class Mesh {
     	for (int i = 0; i < numEdges; i++)
     		E.addElement(null);
     	originalFaceVerts = new Vector<Integer>(faces.length);
+    	originalFaceEdges = new Vector<Integer>(faces.length);
     	
     	Hashtable<IntPair,Edge> edgeTable = new Hashtable<IntPair,Edge>();
     	
@@ -115,12 +117,14 @@ public class Mesh {
     		ei += N;
     	}
     	// ensure mesh is triangular
-    	//triangulate();
+    	triangulate();
     	// get number of original faces
     	originalFaceCount = F.size();
     	// get one of each original face's vertices
     	for(int i = 0; i < originalFaceCount; i++)
     		originalFaceVerts.add(E.get(F.get(i).e).v);
+    	for(int i = 0; i < originalFaceCount; i++)
+    		originalFaceEdges.add(F.get(i).e);
     	// set the normals for the mesh
     	setNormals();
     }
@@ -137,6 +141,43 @@ public class Mesh {
 			{ 1, 2, 3 },
 			{ 0, 3, 2 } };
     	return new Mesh(verts, faces);
+    }
+    
+    public static Mesh square(){
+    	Vec3[]  verts = new Vec3[8];	// vertices
+    	verts[0] = new Vec3(-1, 1, 1);
+    	verts[1] = new Vec3(-1,-1, 1);
+    	verts[2] = new Vec3( 1,-1, 1);
+    	verts[3] = new Vec3( 1, 1, 1);
+    	verts[4] = new Vec3(-1, 1,-1);
+    	verts[5] = new Vec3(-1,-1,-1);
+    	verts[6] = new Vec3( 1,-1,-1);
+    	verts[7] = new Vec3( 1, 1,-1);
+    	int faces[][] = {		// indices of vertices per face
+    			{ 0, 1, 2, 3 },	// counter-clockwise
+    			{ 4, 7, 6, 5 },
+    			{ 0, 4, 5, 1 },
+    			{ 0, 3, 7, 4 },
+    			{ 1, 5, 6, 2 },
+    			{ 2, 6, 7, 3 } };
+        	return new Mesh(verts, faces);
+    }
+    
+    public static Mesh pyramid(){
+    	Vec3[]  verts = new Vec3[5];	// vertices
+    	verts[0] = new Vec3(-1, 1,-1);
+    	verts[1] = new Vec3( 1, 1,-1);
+    	verts[2] = new Vec3( 1,-1,-1);
+    	verts[3] = new Vec3(-1,-1,-1);
+    	verts[4] = new Vec3( 0, 0, 1);
+    	int faces[][] = {		// indices of vertices per face
+    			{ 0, 1, 3 },	// counter-clockwise
+    			{ 1, 2, 3 },
+    			{ 0, 4, 1 },
+    			{ 3, 4, 0 },
+    			{ 2, 4, 3 },
+    			{ 1, 4, 2 } };
+        	return new Mesh(verts, faces);
     }
     
     public void setNormals(){
